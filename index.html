@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PeerJS Call — 4 participants</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrapper">
+
+    <!-- ─── Header ───────────────────────────────────────────── -->
+    <header>
+        <div class="logo">peer<span>/</span>connect <span class="logo-sub">×4</span></div>
+        <div id="status-badge">
+            <span class="dot"></span>
+            <span id="status-text">INITIALISATION...</span>
+        </div>
+    </header>
+
+    <!-- ─── Identifiant local ────────────────────────────────── -->
+    <div class="id-panel">
+        <div>
+            <div class="id-label">Votre ID</div>
+            <div id="my-id">—</div>
+        </div>
+        <div class="participants-count">
+            Participants : <strong id="participant-count">1</strong> / 4
+        </div>
+    </div>
+
+    <!-- ─── Grille vidéo ─────────────────────────────────────── -->
+    <div class="video-grid count-1" id="video-grid">
+        <div class="video-wrap local" id="wrap-local">
+            <div class="video-placeholder" id="local-placeholder">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M15 10l4.553-2.069A1 1 0 0121 8.867v6.266a1 1 0 01-1.447.9L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/>
+                </svg>
+                <span>Caméra locale</span>
+            </div>
+            <video id="local-video" autoplay playsinline muted></video>
+            <div class="video-label">LOCAL</div>
+        </div>
+    </div>
+
+    <!-- ─── Pairs connectés ──────────────────────────────────── -->
+    <div class="peers-panel" id="peers-panel">
+        <span class="peers-panel-label">Connectés :</span>
+        <span class="no-peers" id="no-peers-msg">Aucun pair connecté</span>
+    </div>
+
+    <!-- ─── Contrôles d'appel ────────────────────────────────── -->
+    <div class="controls">
+        <div class="input-row">
+            <input id="peer-id-input" type="text" placeholder="ID du pair à appeler..." />
+            <span class="slots-info" id="slots-info">3 slots libres</span>
+            <button class="btn btn-call" id="btn-call" onclick="startCall()" disabled>Appeler</button>
+        </div>
+        <div class="media-row">
+            <button class="btn-toggle" id="btn-mic" onclick="toggleMic()">🎤 Micro ON</button>
+            <button class="btn-toggle" id="btn-cam" onclick="toggleCam()">📷 Caméra ON</button>
+        </div>
+        <button class="btn btn-hangup" id="btn-hangup" onclick="endAllCalls()">✕ Quitter la session</button>
+    </div>
+
+    <!-- ─── Chat ─────────────────────────────────────────────── -->
+    <div class="chat-panel" id="chat-panel">
+        <div class="chat-header">
+            <span>Messages</span>
+            <span class="unread-badge" id="unread-badge">0</span>
+        </div>
+        <div class="chat-messages" id="chat-messages">
+            <div class="chat-msg system">
+                <span class="bubble">Le chat est actif pendant un appel</span>
+            </div>
+        </div>
+        <div class="chat-input-row">
+            <input
+                    id="chat-input"
+                    type="text"
+                    placeholder="Écrire un message..."
+                    maxlength="500"
+                    onkeydown="if(event.key==='Enter') window.sendChatMessage()"
+                    disabled
+            />
+            <button class="chat-send-btn" id="chat-send-btn" onclick="window.sendChatMessage()" disabled>
+                Envoyer
+            </button>
+        </div>
+    </div>
+
+    <!-- ─── Log technique ────────────────────────────────────── -->
+    <div id="log"></div>
+
+</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
