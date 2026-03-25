@@ -305,24 +305,25 @@ function setupDataConn(conn) {
     const peerId = conn.peer;
 
     conn.on('data', async (msg) => {
+
+        // ── hello : liste des pairs existants envoyée par l'intermédiaire ──
+        // On ouvre DataConn + appel média vers chacun d'eux.
         if (msg.type === 'hello') {
-            log(`hello reçu de ${peerId}, pairs : [${msg.peers.join(', ')}]`, 'info');
+            log(`hello reçu de ${peerId} — pairs existants : [${msg.peers.join(', ')}]`, 'info');
             for (const id of msg.peers) {
                 if (id !== myId && (!activePeers.has(id) || !activePeers.get(id).call)) {
-                    openDataConn(id);
-                    await callPeer(id);
+                    await connectToExistingPeer(id);
                 }
             }
         }
 
+        // ── join : un pair existant nous signale l'arrivée d'un nouveau ──
+        // On ouvre DataConn + appel média vers ce nouveau.
         if (msg.type === 'join') {
-            // Un pair existant nous signale qu'un nouveau (msg.id) vient d'arriver.
-            // On doit l'appeler si on ne le connaît pas encore.
             const newId = msg.id;
             if (newId && newId !== myId && (!activePeers.has(newId) || !activePeers.get(newId).call)) {
-                log(`Signal join reçu pour ${newId} via ${peerId}`, 'info');
-                openDataConn(newId);
-                await callPeer(newId);
+                log(`join reçu — nouvel arrivant : ${newId} (via ${peerId})`, 'info');
+                await connectToExistingPeer(newId);
             }
         }
 
@@ -339,42 +340,70 @@ function setupDataConn(conn) {
     conn.on('error', (err) => log(`DataConn ${peerId} : ${err}`, 'err'));
 }
 
-function openDataConn(peerId) {
-    if (activePeers.has(peerId) && activePeers.get(peerId).conn) return;
+/**
+ * Ouvrir une DataConnection vers un pair existant, attendre qu'elle soit
+ * ouverte (event 'open'), puis lancer l'appel média.
+ * Centralise la logique pour hello ET join.
+ */
+function connectToExistingPeer(peerId) {
+    return new Promise((resolve) => {
+        if (activePeers.has(peerId) && activePeers.get(peerId).conn) {
+            // DataConn déjà ouverte, juste appeler en média si nécessaire
+            callPeer(peerId).then(resolve);
+            return;
+        }
 
-    const conn = peer.connect(peerId, { reliable: true });
-    ensurePeer(peerId).conn = conn;
+        const conn = peer.connect(peerId, { reliable: true, serialization: 'json' });
+        ensurePeer(peerId).conn = conn;
 
-    conn.on('open', () => {
-        log(`DataConn ouverte → ${peerId}`, 'ok');
-        displaySystemMessage(`${peerId} a rejoint la session`);
+        conn.on('open', async () => {
+            log(`DataConn ouverte → ${peerId}`, 'ok');
+            displaySystemMessage(`${peerId} a rejoint la session`);
+            await callPeer(peerId);
+            resolve();
+        });
+
+        conn.on('error', (err) => {
+            log(`DataConn erreur → ${peerId} : ${err}`, 'err');
+            resolve(); // ne pas bloquer la chaîne
+        });
+
+        setupDataConn(conn);
     });
-
-    setupDataConn(conn);
 }
 
-// Réception d'une DataConnection entrante
+// ── Réception d'une DataConnection entrante ──────────────────
 peer.on('connection', (conn) => {
     const peerId = conn.peer;
     log(`DataConn entrante ← ${peerId}`, 'info');
+
+    // Stocker immédiatement — même avant 'open' — pour que le broadcast
+    // de 'join' ci-dessous puisse utiliser cette connexion si elle s'ouvre.
     ensurePeer(peerId).conn = conn;
 
     conn.on('open', () => {
-        // 1. Envoyer au nouveau pair la liste des membres existants
+        // 1. Envoyer au nouvel arrivant la liste des membres déjà présents.
         const currentPeers = [...activePeers.keys()].filter(id => id !== peerId);
         conn.send({ type: 'hello', peers: currentPeers });
-        log(`hello envoyé à ${peerId}, pairs : [${currentPeers.join(', ')}]`, 'ok');
+        log(`hello → ${peerId}, pairs existants : [${currentPeers.join(', ')}]`, 'ok');
 
-        // 2. Broadcaster 'join' à TOUS les pairs existants pour qu'ils appellent le nouveau.
-        //    Sans ça, B ne sait jamais que C est arrivé et ne l'appelle jamais.
-        activePeers.forEach((info, existingId) => {
-            if (existingId !== peerId && info.conn) {
-                try {
-                    info.conn.send({ type: 'join', id: peerId });
-                    log(`join(${peerId}) broadcasté à ${existingId}`, 'ok');
-                } catch (_) {}
+        // 2. Notifier TOUS les pairs existants de l'arrivée du nouveau.
+        //    Chaque pair recevant 'join' appellera le nouveau de son côté.
+        //    On itère sur une copie pour éviter les mutations concurrentes.
+        const snapshot = [...activePeers.entries()];
+        for (const [existingId, info] of snapshot) {
+            if (existingId === peerId) continue;
+            if (!info.conn) {
+                log(`Pas de DataConn vers ${existingId} pour broadcaster join`, 'err');
+                continue;
             }
-        });
+            try {
+                info.conn.send({ type: 'join', id: peerId });
+                log(`join(${peerId}) → ${existingId}`, 'ok');
+            } catch (e) {
+                log(`Erreur broadcast join vers ${existingId} : ${e.message}`, 'err');
+            }
+        }
     });
 
     setupDataConn(conn);
@@ -475,8 +504,9 @@ window.startCall = async function () {
     setStatus('APPEL EN COURS...', 'calling');
     try {
         await getLocalMedia();
-        openDataConn(peerId); // ouvre le data channel → recevra hello avec la liste des pairs
-        await callPeer(peerId);
+        // Utiliser connectToExistingPeer : attend que la DataConn soit open
+        // avant de lancer l'appel média, évitant la race condition.
+        await connectToExistingPeer(peerId);
         input.value = '';
     } catch (err) {
         log(`Échec : ${err.message}`, 'err');
