@@ -286,8 +286,13 @@ peer.on('call', (call) => {
 /*
  * Protocole de messages :
  *   { type: 'hello', peers: ['ID1', 'ID2', ...] }
- *       → envoyé par l'hôte au nouveau pair : liste des autres membres
- *       → le nouveau pair appelle chacun de ces IDs
+ *       → envoyé par l'intermédiaire au nouveau pair : liste des membres existants
+ *       → le nouveau pair ouvre DataConn + appel média vers chacun
+ *
+ *   { type: 'join', id: 'XYZ' }
+ *       → broadcasté par l'intermédiaire à TOUS ses pairs existants
+ *       → chaque pair existant ouvre DataConn + appel média vers le nouveau
+ *       → résout le problème : B ne voit jamais C sans ce signal
  *
  *   { type: 'bye' }
  *       → notifie qu'on quitte proprement
@@ -307,6 +312,17 @@ function setupDataConn(conn) {
                     openDataConn(id);
                     await callPeer(id);
                 }
+            }
+        }
+
+        if (msg.type === 'join') {
+            // Un pair existant nous signale qu'un nouveau (msg.id) vient d'arriver.
+            // On doit l'appeler si on ne le connaît pas encore.
+            const newId = msg.id;
+            if (newId && newId !== myId && (!activePeers.has(newId) || !activePeers.get(newId).call)) {
+                log(`Signal join reçu pour ${newId} via ${peerId}`, 'info');
+                openDataConn(newId);
+                await callPeer(newId);
             }
         }
 
@@ -344,10 +360,21 @@ peer.on('connection', (conn) => {
     ensurePeer(peerId).conn = conn;
 
     conn.on('open', () => {
-        // Envoyer la liste de tous les pairs déjà connectés (sauf le nouveau)
+        // 1. Envoyer au nouveau pair la liste des membres existants
         const currentPeers = [...activePeers.keys()].filter(id => id !== peerId);
         conn.send({ type: 'hello', peers: currentPeers });
         log(`hello envoyé à ${peerId}, pairs : [${currentPeers.join(', ')}]`, 'ok');
+
+        // 2. Broadcaster 'join' à TOUS les pairs existants pour qu'ils appellent le nouveau.
+        //    Sans ça, B ne sait jamais que C est arrivé et ne l'appelle jamais.
+        activePeers.forEach((info, existingId) => {
+            if (existingId !== peerId && info.conn) {
+                try {
+                    info.conn.send({ type: 'join', id: peerId });
+                    log(`join(${peerId}) broadcasté à ${existingId}`, 'ok');
+                } catch (_) {}
+            }
+        });
     });
 
     setupDataConn(conn);
