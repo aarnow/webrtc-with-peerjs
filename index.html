@@ -3,144 +3,148 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PeerJS Call — 4 participants</title>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <title>PeerConnect</title>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="wrapper">
 
-    <!-- ─── Header ───────────────────────────────────────────── -->
-    <header>
-        <div class="logo">peer<span>/</span>connect <span class="logo-sub">×12</span></div>
-        <div id="status-badge">
+<!-- ─── Barre de titre ───────────────────────────────────────── -->
+<header class="topbar">
+    <div class="topbar-left">
+        <span class="app-name">PEERCONNECT</span>
+        <span class="app-version">mesh ×12</span>
+    </div>
+    <div class="topbar-center">
+        <div id="status-badge" class="status-badge">
             <span class="dot"></span>
-            <span id="status-text">INITIALISATION...</span>
-        </div>
-    </header>
-
-    <!-- ─── Identifiant local ────────────────────────────────── -->
-    <div class="id-panel">
-        <div>
-            <div class="id-label">Votre ID</div>
-            <div id="my-id">—</div>
-        </div>
-        <div class="participants-count">
-            Participants : <strong id="participant-count">1</strong> / 12
+            <span id="status-text">INITIALISATION</span>
         </div>
     </div>
-
-    <!-- ─── Grille vidéo ─────────────────────────────────────── -->
-    <div class="video-grid count-1" id="video-grid">
-        <div class="video-wrap local" id="wrap-local">
-            <div class="video-placeholder" id="local-placeholder">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <path d="M15 10l4.553-2.069A1 1 0 0121 8.867v6.266a1 1 0 01-1.447.9L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/>
-                </svg>
-                <span>Caméra locale</span>
-            </div>
-            <video id="local-video" autoplay playsinline muted></video>
-            <div class="video-label">LOCAL</div>
-        </div>
+    <div class="topbar-right">
+        <span class="topbar-label">PARTICIPANTS</span>
+        <strong id="participant-count">1</strong>
+        <span class="topbar-label">/ 12</span>
     </div>
+</header>
 
-    <!-- ─── Pairs connectés ──────────────────────────────────── -->
-    <div class="peers-panel" id="peers-panel">
-        <span class="peers-panel-label">Connectés :</span>
-        <span class="no-peers" id="no-peers-msg">Aucun pair connecté</span>
-    </div>
+<!-- ─── Layout 3 colonnes ────────────────────────────────────── -->
+<div class="layout">
 
-    <!-- ─── Contrôles d'appel ────────────────────────────────── -->
-    <div class="controls">
-        <div class="input-row">
-            <input id="peer-id-input" type="text" placeholder="ID du pair (8 caractères)..." maxlength="8" />
-            <span class="slots-info" id="slots-info">3 slots libres</span>
-            <button class="btn btn-call" id="btn-call" onclick="startCall()" disabled>Appeler</button>
-        </div>
-        <div class="media-row">
-            <button class="btn-toggle" id="btn-mic" onclick="toggleMic()">🎤 Micro ON</button>
-            <button class="btn-toggle" id="btn-cam" onclick="toggleCam()">📷 Caméra ON</button>
-        </div>
-        <button class="btn btn-hangup" id="btn-hangup" onclick="endAllCalls()">✕ Quitter la session</button>
-    </div>
+    <!-- ══ GAUCHE : infos, contrôles, stats, log ═════════════ -->
+    <aside class="col col-left">
 
-    <!-- ─── Chat ─────────────────────────────────────────────── -->
-    <div class="chat-panel" id="chat-panel">
-        <div class="chat-header">
-            <span>Messages</span>
-            <span class="unread-badge" id="unread-badge">0</span>
-        </div>
-        <div class="chat-messages" id="chat-messages">
-            <div class="chat-msg system">
-                <span class="bubble">Le chat est actif pendant un appel</span>
-            </div>
-        </div>
-        <div class="chat-input-row">
-            <input
-                    id="chat-input"
-                    type="text"
-                    placeholder="Écrire un message..."
-                    maxlength="500"
-                    onkeydown="if(event.key==='Enter') window.sendChatMessage()"
-                    disabled
-            />
-            <button class="chat-send-btn" id="chat-send-btn" onclick="window.sendChatMessage()" disabled>
-                Envoyer
-            </button>
-        </div>
-    </div>
-
-    <!-- ─── Stats WebRTC ───────────────────────────────────────── -->
-    <div class="stats-panel" id="stats-panel">
-        <div class="stats-header">
-            <span>Stats WebRTC</span>
-            <span class="stats-refresh" id="stats-refresh">—</span>
-        </div>
-        <div class="stats-body">
-            <!-- Métriques globales -->
-            <div class="stats-global">
-                <div class="stat-chip">
-                    <span class="stat-label">Connexions</span>
-                    <span class="stat-value" id="stat-connections">0</span>
-                </div>
-                <div class="stat-chip">
-                    <span class="stat-label">↑ Envoi total</span>
-                    <span class="stat-value" id="stat-send-total">0 KB</span>
-                </div>
-                <div class="stat-chip">
-                    <span class="stat-label">↓ Reçu total</span>
-                    <span class="stat-value" id="stat-recv-total">0 KB</span>
-                </div>
-                <div class="stat-chip">
-                    <span class="stat-label">↑ Débit envoi</span>
-                    <span class="stat-value" id="stat-send-rate">0 kbps</span>
-                </div>
-                <div class="stat-chip">
-                    <span class="stat-label">↓ Débit reçu</span>
-                    <span class="stat-value" id="stat-recv-rate">0 kbps</span>
+        <section class="panel">
+            <div class="panel-title">IDENTITÉ</div>
+            <div class="panel-body">
+                <div class="id-row">
+                    <span class="field-label">VOTRE ID</span>
+                    <span id="my-id" class="id-value">—</span>
                 </div>
             </div>
-            <!-- Détail par pair -->
-            <table class="stats-peers-table" id="stats-peers-table">
-                <thead>
-                <tr>
-                    <th>Pair</th>
-                    <th>ICE</th>
-                    <th>RTT</th>
-                    <th>↑ kbps</th>
-                    <th>↓ kbps</th>
-                    <th>Perte vid.</th>
-                    <th>Résolution</th>
-                    <th>FPS</th>
-                </tr>
-                </thead>
-                <tbody id="stats-peers-body"></tbody>
-            </table>
-        </div>
-    </div>
+        </section>
 
-    <!-- ─── Log technique ────────────────────────────────────── -->
-    <div id="log"></div>
+        <section class="panel">
+            <div class="panel-title">CONNEXION</div>
+            <div class="panel-body gap-sm">
+                <div class="input-btn-row">
+                    <input id="peer-id-input" class="flat-input" type="text"
+                           placeholder="ID du pair..." maxlength="8" />
+                    <button class="btn-call" id="btn-call" onclick="startCall()" disabled>
+                        APPELER
+                    </button>
+                </div>
+                <span id="slots-info" class="slots-info">— slots libres</span>
+                <div class="media-row">
+                    <button class="btn-toggle" id="btn-mic" onclick="toggleMic()">🎤 MIC ON</button>
+                    <button class="btn-toggle" id="btn-cam" onclick="toggleCam()">📷 CAM ON</button>
+                </div>
+                <button class="btn-hangup hidden" id="btn-hangup" onclick="endAllCalls()">
+                    ✕ QUITTER LA SESSION
+                </button>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-title">PAIRS</div>
+            <div class="panel-body" id="peers-panel">
+                <span class="empty-label" id="no-peers-msg">Aucun pair connecté</span>
+            </div>
+        </section>
+
+        <section class="panel hidden" id="stats-panel">
+            <div class="panel-title">
+                STATS WEBRTC
+                <span id="stats-refresh" class="stats-refresh"></span>
+            </div>
+            <div class="panel-body gap-sm">
+                <div class="chips-row">
+                    <div class="chip"><span class="chip-label">CONN.</span><span class="chip-val" id="stat-connections">—</span></div>
+                    <div class="chip"><span class="chip-label">↑ TOTAL</span><span class="chip-val" id="stat-send-total">—</span></div>
+                    <div class="chip"><span class="chip-label">↓ TOTAL</span><span class="chip-val" id="stat-recv-total">—</span></div>
+                    <div class="chip"><span class="chip-label">↑ kbps</span><span class="chip-val" id="stat-send-rate">—</span></div>
+                    <div class="chip"><span class="chip-label">↓ kbps</span><span class="chip-val" id="stat-recv-rate">—</span></div>
+                </div>
+                <div class="table-wrap">
+                    <table class="stats-table">
+                        <thead><tr>
+                            <th>PAIR</th><th>ICE</th><th>RTT</th>
+                            <th>↑</th><th>↓</th><th>PERTE</th><th>RES.</th><th>FPS</th>
+                        </tr></thead>
+                        <tbody id="stats-peers-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section class="panel panel-log">
+            <div class="panel-title">LOG</div>
+            <div id="log" class="log-body"></div>
+        </section>
+
+    </aside>
+
+    <!-- ══ CENTRE : grille vidéo ════════════════════════════ -->
+    <main class="col col-center">
+        <div class="video-grid count-1" id="video-grid">
+            <div class="video-wrap local" id="wrap-local">
+                <div class="video-placeholder" id="local-placeholder">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M15 10l4.553-2.069A1 1 0 0121 8.867v6.266a1 1 0 01-1.447.9L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/>
+                    </svg>
+                    <span>Caméra locale</span>
+                </div>
+                <video id="local-video" autoplay playsinline muted></video>
+                <div class="video-label">LOCAL</div>
+            </div>
+        </div>
+    </main>
+
+    <!-- ══ DROITE : chat ════════════════════════════════════ -->
+    <aside class="col col-right">
+        <section class="panel panel-chat">
+            <div class="panel-title">
+                MESSAGES
+                <span class="unread-badge hidden" id="unread-badge">0</span>
+            </div>
+            <div class="chat-messages" id="chat-messages">
+                <div class="chat-sys">Chat actif pendant un appel</div>
+            </div>
+            <div class="chat-footer">
+                <input
+                        id="chat-input"
+                        class="flat-input"
+                        type="text"
+                        placeholder="Écrire un message..."
+                        maxlength="500"
+                        onkeydown="if(event.key==='Enter') window.sendChatMessage()"
+                        disabled
+                />
+                <button class="btn-send" id="chat-send-btn"
+                        onclick="window.sendChatMessage()" disabled>↵</button>
+            </div>
+        </section>
+    </aside>
 
 </div>
 

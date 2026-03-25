@@ -107,7 +107,7 @@ function updateGrid() {
     document.getElementById('video-grid').className      = `video-grid count-${Math.min(total, MAX_PEERS + 1)}`;
     document.getElementById('participant-count').textContent = total;
     document.getElementById('btn-call').disabled         = left === 0;
-    document.getElementById('btn-hangup').classList.toggle('visible', activePeers.size > 0);
+    document.getElementById('btn-hangup').classList.toggle('hidden', activePeers.size === 0);
 
     slotsEl.textContent = left === 0
         ? 'Session pleine'
@@ -405,15 +405,15 @@ function displayMessage(fromId, text, time) {
         unreadCount++;
         const badge = document.getElementById('unread-badge');
         badge.textContent = unreadCount;
-        badge.classList.add('visible');
+        badge.classList.remove('hidden');
     }
 }
 
 function displaySystemMessage(text) {
     const container = document.getElementById('chat-messages');
     const msg = document.createElement('div');
-    msg.className = 'chat-msg system';
-    msg.innerHTML = `<span class="bubble">${escapeHtml(text)}</span>`;
+    msg.className = 'chat-sys';
+    msg.textContent = text;
     container.appendChild(msg);
     container.scrollTop = container.scrollHeight;
 }
@@ -429,7 +429,7 @@ document.getElementById('chat-messages').addEventListener('scroll', function () 
         unreadCount = 0;
         const badge = document.getElementById('unread-badge');
         badge.textContent = '0';
-        badge.classList.remove('visible');
+        badge.classList.add('hidden');
     }
 });
 
@@ -529,14 +529,14 @@ let prevGlobal = { bytesSent: 0, bytesReceived: 0, ts: Date.now() };
 
 function startStats() {
     if (statsIntervalId) return;
-    document.getElementById('stats-panel').classList.add('visible');
+    document.getElementById('stats-panel').classList.remove('hidden');
     statsIntervalId = setInterval(collectStats, 2000);
     collectStats(); // premier appel immédiat
 }
 
 function stopStats() {
     if (statsIntervalId) { clearInterval(statsIntervalId); statsIntervalId = null; }
-    document.getElementById('stats-panel').classList.remove('visible');
+    document.getElementById('stats-panel').classList.add('hidden');
     document.getElementById('stats-peers-body').innerHTML = '';
     prevBytes.clear();
     // Remettre les chips globaux à zéro
@@ -691,7 +691,7 @@ window.toggleMic = function () {
     track.enabled = !track.enabled;
     const btn = document.getElementById('btn-mic');
     btn.textContent = track.enabled ? '🎤 Micro ON' : '🔇 Micro OFF';
-    btn.classList.toggle('muted', !track.enabled);
+    btn.classList.toggle('off', !track.enabled);
 };
 
 window.toggleCam = function () {
@@ -702,5 +702,5 @@ window.toggleCam = function () {
     track.enabled = !track.enabled;
     const btn = document.getElementById('btn-cam');
     btn.textContent = track.enabled ? '📷 Caméra ON' : '🚫 Caméra OFF';
-    btn.classList.toggle('muted', !track.enabled);
+    btn.classList.toggle('off', !track.enabled);
 };
