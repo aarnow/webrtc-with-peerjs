@@ -90,6 +90,55 @@
         </div>
     </div>
 
+    <!-- ─── Stats WebRTC ───────────────────────────────────────── -->
+    <div class="stats-panel" id="stats-panel">
+        <div class="stats-header">
+            <span>Stats WebRTC</span>
+            <span class="stats-refresh" id="stats-refresh">—</span>
+        </div>
+        <div class="stats-body">
+            <!-- Métriques globales -->
+            <div class="stats-global">
+                <div class="stat-chip">
+                    <span class="stat-label">Connexions</span>
+                    <span class="stat-value" id="stat-connections">0</span>
+                </div>
+                <div class="stat-chip">
+                    <span class="stat-label">↑ Envoi total</span>
+                    <span class="stat-value" id="stat-send-total">0 KB</span>
+                </div>
+                <div class="stat-chip">
+                    <span class="stat-label">↓ Reçu total</span>
+                    <span class="stat-value" id="stat-recv-total">0 KB</span>
+                </div>
+                <div class="stat-chip">
+                    <span class="stat-label">↑ Débit envoi</span>
+                    <span class="stat-value" id="stat-send-rate">0 kbps</span>
+                </div>
+                <div class="stat-chip">
+                    <span class="stat-label">↓ Débit reçu</span>
+                    <span class="stat-value" id="stat-recv-rate">0 kbps</span>
+                </div>
+            </div>
+            <!-- Détail par pair -->
+            <table class="stats-peers-table" id="stats-peers-table">
+                <thead>
+                <tr>
+                    <th>Pair</th>
+                    <th>ICE</th>
+                    <th>RTT</th>
+                    <th>↑ kbps</th>
+                    <th>↓ kbps</th>
+                    <th>Perte vid.</th>
+                    <th>Résolution</th>
+                    <th>FPS</th>
+                </tr>
+                </thead>
+                <tbody id="stats-peers-body"></tbody>
+            </table>
+        </div>
+    </div>
+
     <!-- ─── Log technique ────────────────────────────────────── -->
     <div id="log"></div>
 

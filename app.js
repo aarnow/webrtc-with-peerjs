@@ -8,18 +8,12 @@ const MAX_PEERS = 11; // max pairs distants (total session = MAX_PEERS + 1 = 12)
 // Contraintes vidéo adaptées au mesh à grande échelle.
 // Moins de résolution/framerate = moins de bande passante par flux.
 // À 12 participants chaque client envoie 11 flux simultanément.
-// Contraintes adaptées PC et Android — sans facingMode qui bloque les webcams PC.
-// Android utilisera la caméra frontale par défaut sans avoir à le forcer.
+// Contraintes vidéo — volontairement simples pour compatibilité maximale
+// PC et Android. Les contraintes "ideal" sont des suggestions, pas des exigences :
+// le navigateur fait de son mieux sans rejeter l'appel.
 const VIDEO_CONSTRAINTS = {
-    video: {
-        width:     { ideal: 320 },
-        height:    { ideal: 180 },
-        frameRate: { ideal: 15, max: 20 },
-    },
-    audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-    },
+    video: { width: { ideal: 320 }, height: { ideal: 180 } },
+    audio: true,
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -48,10 +42,10 @@ peer.on('open', () => {
     document.getElementById('btn-call').disabled = false;
     log(`Prêt — ID : ${myId}`, 'ok');
 
-    // Démarrer la caméra dès que PeerJS est prêt.
-    // Sur Android les permissions sont déjà accordées par MainActivity,
-    // donc ça ne bloque pas. But : localStream est prêt avant tout appel entrant.
-    getLocalMedia().catch(err => log(`Init caméra : ${err.message}`, 'err'));
+    // Pré-initialiser la caméra en arrière-plan.
+    // On catch toute erreur sans faire crasher le module —
+    // la caméra sera re-demandée au moment de l'appel si besoin.
+    getLocalMedia().catch(() => {});
 });
 
 peer.on('error', (err) => {
@@ -84,7 +78,14 @@ function setStatus(text, cls) {
 async function getLocalMedia() {
     if (localStream) return localStream;
 
-    localStream = await navigator.mediaDevices.getUserMedia(VIDEO_CONSTRAINTS);
+    try {
+        // Tentative avec les contraintes idéales (résolution réduite)
+        localStream = await navigator.mediaDevices.getUserMedia(VIDEO_CONSTRAINTS);
+    } catch (e) {
+        // Fallback : contraintes minimales, acceptées par tous les navigateurs
+        log(`Contraintes vidéo refusées (${e.message}), fallback…`, 'info');
+        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    }
 
     const v = document.getElementById('local-video');
     v.srcObject = localStream;
@@ -233,7 +234,7 @@ async function callPeer(peerId) {
 
     // Enregistrer 'stream' immédiatement après peer.call(),
     // avant tout await, pour ne jamais rater l'événement.
-    call.on('stream', (stream) => { attachStream(peerId, stream); updateGrid(); });
+    call.on('stream', (stream) => { attachStream(peerId, stream); updateGrid(); startStats(); });
     call.on('close',  ()       => onPeerLeft(peerId));
     call.on('error',  (err)    => { log(`Erreur appel ${peerId} : ${err}`, 'err'); onPeerLeft(peerId); });
 
@@ -259,7 +260,7 @@ peer.on('call', (call) => {
     const info = ensurePeer(peerId);
     info.call  = call;
 
-    call.on('stream', (stream) => { attachStream(peerId, stream); updateGrid(); });
+    call.on('stream', (stream) => { attachStream(peerId, stream); updateGrid(); startStats(); });
     call.on('close',  ()       => onPeerLeft(peerId));
     call.on('error',  (err)    => { log(`Erreur appel ${peerId} : ${err}`, 'err'); onPeerLeft(peerId); });
 
@@ -485,6 +486,7 @@ window.endAllCalls = function () {
     document.getElementById('local-video').srcObject        = null;
     document.getElementById('local-placeholder').style.display = '';
 
+    stopStats();
     setStatus('CONNECTÉ', 'connected');
     log('Session terminée', 'info');
     updateGrid();
@@ -512,6 +514,174 @@ window.sendChatMessage = function () {
         log('Aucune connexion data disponible pour envoyer le message', 'err');
     }
 };
+
+// ─────────────────────────────────────────────────────────────
+//  Stats WebRTC  (RTCPeerConnection.getStats)
+// ─────────────────────────────────────────────────────────────
+
+let statsIntervalId  = null;
+
+// Mémoriser les bytes précédents pour calculer le débit delta
+const prevBytes = new Map(); // peerId → { bytesSent, bytesReceived, ts }
+
+// Totaux précédents pour le débit global
+let prevGlobal = { bytesSent: 0, bytesReceived: 0, ts: Date.now() };
+
+function startStats() {
+    if (statsIntervalId) return;
+    document.getElementById('stats-panel').classList.add('visible');
+    statsIntervalId = setInterval(collectStats, 2000);
+    collectStats(); // premier appel immédiat
+}
+
+function stopStats() {
+    if (statsIntervalId) { clearInterval(statsIntervalId); statsIntervalId = null; }
+    document.getElementById('stats-panel').classList.remove('visible');
+    document.getElementById('stats-peers-body').innerHTML = '';
+    prevBytes.clear();
+    // Remettre les chips globaux à zéro
+    ['stat-connections','stat-send-total','stat-recv-total','stat-send-rate','stat-recv-rate']
+        .forEach(id => { document.getElementById(id).textContent = '—'; });
+}
+
+async function collectStats() {
+    if (activePeers.size === 0) { stopStats(); return; }
+
+    const now = Date.now();
+    document.getElementById('stats-refresh').textContent =
+        `Actualisation : ${new Date().toLocaleTimeString('fr', { hour:'2-digit', minute:'2-digit', second:'2-digit' })}`;
+
+    let globalSent = 0, globalRecv = 0;
+    const rows = [];
+
+    for (const [peerId, info] of activePeers) {
+        const pc = info.call?.peerConnection;
+        if (!pc) continue;
+
+        let row = {
+            peerId,
+            iceState:  pc.iceConnectionState,
+            rtt:       null,
+            sendKbps:  null,
+            recvKbps:  null,
+            lostVideo: null,
+            width:     null,
+            height:    null,
+            fps:       null,
+            bytesSent: 0,
+            bytesRecv: 0,
+        };
+
+        try {
+            const stats = await pc.getStats();
+
+            stats.forEach(report => {
+
+                // ── Paire ICE candidate sélectionnée → RTT ──────────
+                if (report.type === 'candidate-pair' && report.nominated && report.state === 'succeeded') {
+                    if (report.currentRoundTripTime != null) {
+                        row.rtt = Math.round(report.currentRoundTripTime * 1000); // ms
+                    }
+                }
+
+                // ── Flux sortant (outbound-rtp) ──────────────────────
+                if (report.type === 'outbound-rtp' && report.kind === 'video') {
+                    row.bytesSent += report.bytesSent || 0;
+                }
+                if (report.type === 'outbound-rtp' && report.kind === 'audio') {
+                    row.bytesSent += report.bytesSent || 0;
+                }
+
+                // ── Flux entrant (inbound-rtp) ───────────────────────
+                if (report.type === 'inbound-rtp' && report.kind === 'video') {
+                    row.bytesRecv  += report.bytesReceived  || 0;
+                    row.lostVideo   = report.packetsLost    || 0;
+                    row.width       = report.frameWidth     || null;
+                    row.height      = report.frameHeight    || null;
+                    row.fps         = report.framesPerSecond != null
+                        ? Math.round(report.framesPerSecond) : null;
+                }
+                if (report.type === 'inbound-rtp' && report.kind === 'audio') {
+                    row.bytesRecv += report.bytesReceived || 0;
+                }
+            });
+
+        } catch (_) { /* PC peut être en cours de fermeture */ }
+
+        // Calcul débit delta pour ce pair
+        const prev = prevBytes.get(peerId);
+        if (prev) {
+            const dt = (now - prev.ts) / 1000; // secondes
+            row.sendKbps = Math.round(((row.bytesSent - prev.bytesSent) * 8) / dt / 1000);
+            row.recvKbps = Math.round(((row.bytesRecv - prev.bytesRecv) * 8) / dt / 1000);
+        }
+        prevBytes.set(peerId, { bytesSent: row.bytesSent, bytesReceived: row.bytesRecv, ts: now });
+
+        globalSent += row.bytesSent;
+        globalRecv += row.bytesRecv;
+        rows.push(row);
+    }
+
+    // ── Métriques globales ───────────────────────────────────
+    const dtGlobal = (now - prevGlobal.ts) / 1000;
+    const globalSendRate = Math.round(((globalSent - prevGlobal.bytesSent) * 8) / dtGlobal / 1000);
+    const globalRecvRate = Math.round(((globalRecv - prevGlobal.bytesReceived) * 8) / dtGlobal / 1000);
+    prevGlobal = { bytesSent: globalSent, bytesReceived: globalRecv, ts: now };
+
+    document.getElementById('stat-connections').textContent  = activePeers.size;
+    document.getElementById('stat-send-total').textContent   = formatBytes(globalSent);
+    document.getElementById('stat-recv-total').textContent   = formatBytes(globalRecv);
+    document.getElementById('stat-send-rate').textContent    = `${Math.max(0, globalSendRate)} kbps`;
+    document.getElementById('stat-recv-rate').textContent    = `${Math.max(0, globalRecvRate)} kbps`;
+
+    // Colorer le débit global
+    colorStatChip('stat-send-rate', globalSendRate, 500, 1500);
+    colorStatChip('stat-recv-rate', globalRecvRate, 500, 1500);
+
+    // ── Tableau par pair ─────────────────────────────────────
+    const tbody = document.getElementById('stats-peers-body');
+    tbody.innerHTML = '';
+
+    for (const r of rows) {
+        const tr = document.createElement('tr');
+
+        const iceClass = {
+            connected:    'state-connected',
+            completed:    'state-connected',
+            checking:     'state-checking',
+            failed:       'state-failed',
+            disconnected: 'state-failed',
+            closed:       'state-closed',
+        }[r.iceState] || '';
+
+        const rttClass  = r.rtt  == null ? '' : r.rtt < 100 ? 'ok' : r.rtt < 300 ? 'warn' : 'bad';
+        const lostClass = r.lostVideo == null ? '' : r.lostVideo === 0 ? 'ok' : r.lostVideo < 10 ? 'warn' : 'bad';
+
+        tr.innerHTML = `
+            <td>${r.peerId}</td>
+            <td class="${iceClass}">${r.iceState}</td>
+            <td class="${rttClass}">${r.rtt != null ? r.rtt + ' ms' : '—'}</td>
+            <td>${r.sendKbps != null ? Math.max(0, r.sendKbps) : '—'}</td>
+            <td>${r.recvKbps != null ? Math.max(0, r.recvKbps) : '—'}</td>
+            <td class="${lostClass}">${r.lostVideo != null ? r.lostVideo : '—'}</td>
+            <td>${r.width && r.height ? r.width + '×' + r.height : '—'}</td>
+            <td>${r.fps != null ? r.fps : '—'}</td>`;
+        tbody.appendChild(tr);
+    }
+}
+
+function colorStatChip(id, value, warnThreshold, badThreshold) {
+    const el = document.getElementById(id);
+    el.classList.remove('warn', 'bad');
+    if (value > badThreshold)  el.classList.add('bad');
+    else if (value > warnThreshold) el.classList.add('warn');
+}
+
+function formatBytes(bytes) {
+    if (bytes < 1024)        return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+}
 
 window.toggleMic = function () {
     if (!localStream) return;

@@ -499,6 +499,113 @@ header {
 .chat-send-btn:hover    { color: var(--accent); background: var(--accent-dim); }
 .chat-send-btn:disabled { color: var(--border); cursor: not-allowed; }
 
+/* ─── Stats WebRTC ─────────────────────────────────────────── */
+.stats-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    display: none; /* caché tant qu'aucun appel actif */
+}
+
+.stats-panel.visible { display: block; }
+
+.stats-header {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.stats-refresh {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    color: var(--muted);
+    opacity: 0.6;
+}
+
+.stats-body {
+    padding: 0.75rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+/* Ligne globale */
+.stats-global {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.stat-chip {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 0.3rem 0.65rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 90px;
+}
+
+.stat-chip .stat-label {
+    font-size: 0.55rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.stat-chip .stat-value {
+    color: var(--accent);
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.stat-chip .stat-value.warn  { color: #f0a500; }
+.stat-chip .stat-value.bad   { color: var(--red); }
+
+/* Tableau par pair */
+.stats-peers-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 0.62rem;
+}
+
+.stats-peers-table th {
+    text-align: left;
+    color: var(--muted);
+    font-weight: 400;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.25rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.stats-peers-table td {
+    padding: 0.3rem 0.5rem;
+    color: var(--text);
+    border-bottom: 1px solid rgba(30,30,46,0.5);
+    white-space: nowrap;
+}
+
+.stats-peers-table tr:last-child td { border-bottom: none; }
+
+.stats-peers-table td.ok   { color: var(--accent); }
+.stats-peers-table td.warn { color: #f0a500; }
+.stats-peers-table td.bad  { color: var(--red); }
+
+.stats-peers-table td.state-connected  { color: var(--accent); }
+.stats-peers-table td.state-checking   { color: #f0a500; }
+.stats-peers-table td.state-failed     { color: var(--red); }
+.stats-peers-table td.state-closed     { color: var(--muted); }
+
 /* ─── Log technique ─────────────────────────────────────────── */
 #log {
     background: var(--surface);
