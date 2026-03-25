@@ -12,7 +12,7 @@
 
     <!-- ─── Header ───────────────────────────────────────────── -->
     <header>
-        <div class="logo">peer<span>/</span>connect <span class="logo-sub">×4</span></div>
+        <div class="logo">peer<span>/</span>connect <span class="logo-sub">×12</span></div>
         <div id="status-badge">
             <span class="dot"></span>
             <span id="status-text">INITIALISATION...</span>
@@ -26,7 +26,7 @@
             <div id="my-id">—</div>
         </div>
         <div class="participants-count">
-            Participants : <strong id="participant-count">1</strong> / 4
+            Participants : <strong id="participant-count">1</strong> / 12
         </div>
     </div>
 
@@ -53,7 +53,7 @@
     <!-- ─── Contrôles d'appel ────────────────────────────────── -->
     <div class="controls">
         <div class="input-row">
-            <input id="peer-id-input" type="text" placeholder="ID du pair à appeler..." />
+            <input id="peer-id-input" type="text" placeholder="ID du pair (8 caractères)..." maxlength="8" />
             <span class="slots-info" id="slots-info">3 slots libres</span>
             <button class="btn btn-call" id="btn-call" onclick="startCall()" disabled>Appeler</button>
         </div>

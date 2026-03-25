@@ -3,7 +3,24 @@ import Peer from 'https://esm.sh/peerjs@1.5.4';
 // ─────────────────────────────────────────────────────────────
 //  Configuration
 // ─────────────────────────────────────────────────────────────
-const MAX_PEERS = 3; // max pairs distants (total session = MAX_PEERS + 1)
+const MAX_PEERS = 11; // max pairs distants (total session = MAX_PEERS + 1 = 12)
+
+// Contraintes vidéo adaptées au mesh à grande échelle.
+// Moins de résolution/framerate = moins de bande passante par flux.
+// À 12 participants chaque client envoie 11 flux simultanément.
+// Contraintes adaptées PC et Android — sans facingMode qui bloque les webcams PC.
+// Android utilisera la caméra frontale par défaut sans avoir à le forcer.
+const VIDEO_CONSTRAINTS = {
+    video: {
+        width:     { ideal: 320 },
+        height:    { ideal: 180 },
+        frameRate: { ideal: 15, max: 20 },
+    },
+    audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+    },
+};
 
 // ─────────────────────────────────────────────────────────────
 //  État global
@@ -18,7 +35,10 @@ const activePeers = new Map();
 // ─────────────────────────────────────────────────────────────
 //  Initialisation PeerJS  (en premier — avant tout peer.on)
 // ─────────────────────────────────────────────────────────────
-const myId = String(Math.floor(1000 + Math.random() * 9000));
+// ID à 8 caractères alphanumériques — réduit les collisions sur le serveur PeerJS public
+// (9000 combinaisons à 4 chiffres = trop peu quand plusieurs sessions coexistent)
+const myId = Math.random().toString(36).slice(2, 6).toUpperCase()
+    + Math.random().toString(36).slice(2, 6).toUpperCase();
 const peer  = new Peer(myId);
 
 document.getElementById('my-id').textContent = myId;
@@ -64,7 +84,7 @@ function setStatus(text, cls) {
 async function getLocalMedia() {
     if (localStream) return localStream;
 
-    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    localStream = await navigator.mediaDevices.getUserMedia(VIDEO_CONSTRAINTS);
 
     const v = document.getElementById('local-video');
     v.srcObject = localStream;
@@ -83,7 +103,7 @@ function updateGrid() {
     const slotsEl = document.getElementById('slots-info');
     const left    = MAX_PEERS - activePeers.size;
 
-    document.getElementById('video-grid').className      = `video-grid count-${Math.min(total, 4)}`;
+    document.getElementById('video-grid').className      = `video-grid count-${Math.min(total, MAX_PEERS + 1)}`;
     document.getElementById('participant-count').textContent = total;
     document.getElementById('btn-call').disabled         = left === 0;
     document.getElementById('btn-hangup').classList.toggle('visible', activePeers.size > 0);
@@ -94,7 +114,7 @@ function updateGrid() {
     slotsEl.className = 'slots-info' + (left === 0 ? ' full' : '');
 
     if (activePeers.size > 0) {
-        setStatus(`EN APPEL (${total}/4)`, 'in-call');
+        setStatus(`EN APPEL (${total}/${MAX_PEERS + 1})`, 'in-call');
         setChatEnabled(true);
     } else {
         setChatEnabled(false);
@@ -422,7 +442,7 @@ window.startCall = async function () {
     if (!peerId)                                                     { log('Entrez un ID valide', 'err'); return; }
     if (peerId === myId)                                             { log('Vous ne pouvez pas vous appeler vous-même', 'err'); return; }
     if (activePeers.has(peerId) && activePeers.get(peerId).call)    { log(`Déjà connecté à ${peerId}`, 'err'); return; }
-    if (activePeers.size >= MAX_PEERS)                              { log('Session pleine (4/4)', 'err'); return; }
+    if (activePeers.size >= MAX_PEERS)                              { log(`Session pleine (${MAX_PEERS + 1}/${MAX_PEERS + 1})`, 'err'); return; }
 
     setStatus('APPEL EN COURS...', 'calling');
     try {

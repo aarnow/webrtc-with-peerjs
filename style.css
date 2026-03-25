@@ -159,6 +159,17 @@ header {
     grid-template-columns: 1fr 1fr;
 }
 
+/* Réduire le gap et forcer un ratio plus compact à partir de 5 participants */
+.video-grid.count-5,
+.video-grid.count-6,
+.video-grid.count-7,
+.video-grid.count-8,
+.video-grid.count-9  { gap: 0.5rem; }
+
+.video-grid.count-10,
+.video-grid.count-11,
+.video-grid.count-12 { gap: 0.35rem; }
+
 .video-grid.count-1 {
     grid-template-columns: 1fr;
     max-width: 480px;
@@ -166,9 +177,20 @@ header {
     width: 100%;
 }
 
-.video-grid.count-2 { grid-template-columns: 1fr 1fr; }
-.video-grid.count-3 { grid-template-columns: 1fr 1fr; }
-.video-grid.count-4 { grid-template-columns: 1fr 1fr; }
+/* 2–4 : 2 colonnes */
+.video-grid.count-2  { grid-template-columns: 1fr 1fr; }
+.video-grid.count-3  { grid-template-columns: 1fr 1fr; }
+.video-grid.count-4  { grid-template-columns: 1fr 1fr; }
+/* 5–9 : 3 colonnes */
+.video-grid.count-5  { grid-template-columns: repeat(3, 1fr); }
+.video-grid.count-6  { grid-template-columns: repeat(3, 1fr); }
+.video-grid.count-7  { grid-template-columns: repeat(3, 1fr); }
+.video-grid.count-8  { grid-template-columns: repeat(3, 1fr); }
+.video-grid.count-9  { grid-template-columns: repeat(3, 1fr); }
+/* 10–12 : 4 colonnes */
+.video-grid.count-10 { grid-template-columns: repeat(4, 1fr); }
+.video-grid.count-11 { grid-template-columns: repeat(4, 1fr); }
+.video-grid.count-12 { grid-template-columns: repeat(4, 1fr); }
 
 .video-wrap {
     position: relative;
